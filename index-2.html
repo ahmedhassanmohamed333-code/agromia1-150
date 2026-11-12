@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>مغامرة الآجرومية</title>
+<style>
+:root{--bg:#1b1340;--card:#2a1f5c;--gold:#ffd23f;--mint:#2ec4b6;--ink:#f4f1ff;--red:#ff6b6b}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%;background:var(--bg);color:var(--ink);font-family:"Segoe UI",Tahoma,"Noto Sans Arabic","Noto Sans SC",sans-serif;overflow:hidden}
+button{font:inherit;cursor:pointer;border:0;border-radius:14px;padding:12px 18px;background:var(--card);color:var(--ink);border:2px solid #4b3d9a}
+button:hover,button:focus-visible{border-color:var(--gold);outline:none}
+button.on{background:var(--gold);color:#2a1f5c;border-color:var(--gold);font-weight:700}
+#home,#m{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;padding:16px;overflow:auto;z-index:5}
+#m{background:#0009;display:none}
+.box{background:var(--card);border-radius:22px;padding:24px;max-width:560px;width:100%;text-align:center;border:2px solid #4b3d9a}
+h1{margin:0 0 6px;font-size:2rem;color:var(--gold)}
+.row{display:flex;gap:8px;flex-wrap:wrap;justify-content:center;margin:12px 0}
+input{font:inherit;padding:10px;border-radius:10px;border:2px solid #4b3d9a;background:#1b1340;color:var(--ink);width:46%;min-width:120px}
+.go{background:var(--mint);color:#08302c;font-weight:700;font-size:1.2rem;padding:14px 34px;border-color:var(--mint)}
+.credit{margin-top:14px;font-size:.95rem;color:#cfc8ff;line-height:1.7}
+#hud{position:fixed;top:8px;inset-inline-start:8px;z-index:3;display:flex;flex-direction:column;gap:4px}
+.pl{background:#2a1f5ccc;padding:6px 12px;border-radius:10px;border:2px solid transparent}
+.pl.cur{border-color:var(--gold)}
+#pad{position:fixed;bottom:14px;inset-inline-end:14px;display:grid;grid-template-columns:repeat(3,56px);gap:6px;z-index:3;direction:ltr}
+#pad button{padding:0;height:56px;font-size:1.4rem}
+.qb{display:block;width:100%;margin:8px 0;font-size:1.15rem}
+.qb.good{background:var(--mint);color:#08302c}
+.qb.bad{background:var(--red);color:#fff}
+.ttt{display:grid;grid-template-columns:repeat(3,84px);gap:6px;justify-content:center;direction:ltr;margin:12px 0}
+.ttt button{height:84px;font-size:2.2rem;padding:0}
+canvas{display:block}
+</style>
+</head>
+<body>
+<div id="home"><div class="box">
+  <h1 id="t"></h1><p id="sub"></p>
+  <div class="row" id="langs"></div>
+  <div><b id="pc"></b><div class="row" id="counts"></div></div>
+  <div class="row" id="names"></div>
+  <button class="go" id="go"></button>
+  <div class="credit">الأستاذ أحمد حسن<br>تحت إشراف د. محسن<br>بدورة المعلم الحر</div>
+</div></div>
+<div id="hud"></div>
+<div id="pad"><span></span><button data-d="0,-1">▲</button><span></span><button data-d="-1,0">◀</button><button data-d="0,1">▼</button><button data-d="1,0">▶</button></div>
+<div id="m"><div class="box" id="mb"></div></div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+/* ===== النصوص ===== */
+const T={
+ar:{n:"العربية",t:"مغامرة الآجرومية",sub:"اجمع الجواهر، أجب عن الأسئلة، وصل إلى النجمة",pc:"عدد اللاعبين",pn:"اللاعب",go:"ابدأ اللعب",turn:"الدور",ok:"أحسنت! +3 نقاط",no:"الإجابة الصحيحة:",xo:"تحدّي X و O",win:"فزت! +5 نقاط ⭐",lose:"خسرت",dr:"تعادل",end:"النتيجة النهائية",again:"العب مرة أخرى",pts:"نقطة"},
+en:{n:"English",t:"Ajurrumiyyah Adventure",sub:"Collect gems, answer questions, reach the star",pc:"Number of players",pn:"Player",go:"Start",turn:"Turn",ok:"Great! +3 points",no:"Correct answer:",xo:"X and O challenge",win:"You won! +5 points ⭐",lose:"You lost",dr:"Draw",end:"Final score",again:"Play again",pts:"pts"},
+es:{n:"Español",t:"Aventura de la Ajurrumiyyah",sub:"Recoge gemas, responde y llega a la estrella",pc:"Número de jugadores",pn:"Jugador",go:"Empezar",turn:"Turno",ok:"¡Bien! +3 puntos",no:"Respuesta correcta:",xo:"Reto X y O",win:"¡Ganaste! +5 puntos ⭐",lose:"Perdiste",dr:"Empate",end:"Resultado final",again:"Jugar otra vez",pts:"pts"},
+ur:{n:"اردو",t:"آجرومیہ کی مہم",sub:"جواہر جمع کریں، سوالات کے جواب دیں، ستارے تک پہنچیں",pc:"کھلاڑیوں کی تعداد",pn:"کھلاڑی",go:"کھیل شروع کریں",turn:"باری",ok:"شاباش! +3 پوائنٹس",no:"درست جواب:",xo:"X اور O کا چیلنج",win:"آپ جیت گئے! +5 پوائنٹس ⭐",lose:"آپ ہار گئے",dr:"برابر",end:"حتمی نتیجہ",again:"دوبارہ کھیلیں",pts:"پوائنٹ"},
+zh:{n:"中文",t:"阿吉鲁米亚大冒险",sub:"收集宝石，回答问题，找到星星",pc:"玩家人数",pn:"玩家",go:"开始游戏",turn:"轮到",ok:"太棒了！+3 分",no:"正确答案：",xo:"井字棋挑战",win:"你赢了！+5 分 ⭐",lose:"你输了",dr:"平局",end:"最终得分",again:"再玩一次",pts:"分"},
+fr:{n:"Français",t:"Aventure de l'Ajurrumiyyah",sub:"Ramasse les gemmes, réponds, atteins l'étoile",pc:"Nombre de joueurs",pn:"Joueur",go:"Commencer",turn:"Tour",ok:"Bravo ! +3 points",no:"Bonne réponse :",xo:"Défi X et O",win:"Gagné ! +5 points ⭐",lose:"Perdu",dr:"Égalité",end:"Score final",again:"Rejouer",pts:"pts"}
+};
+const LN=["ar","en","es","ur","zh","fr"];
+/* ===== الأسئلة: لكل سؤال 6 لغات بصيغة سؤال|الصحيح|خطأ1|خطأ2 (الصحيح أولاً ثم يُخلط عشوائياً) ===== */
+const Q=[
+[`كم عدد المرفوعات من الأسماء؟|سبعة|خمسة|تسعة`,`How many nominative (marfu') noun types are there?|Seven|Five|Nine`,`¿Cuántos tipos de nombres marfu' (nominativo) hay?|Siete|Cinco|Nueve`,`مرفوع اسماء کتنے ہیں؟|سات|پانچ|نو`,`主格（مرفوع）名词有几种？|七种|五种|九种`,`Combien de noms marfou' (nominatif) y a-t-il ?|Sept|Cinq|Neuf`],
+[`الفاعل هو؟|الاسم المرفوع المذكور قبله فعله|الاسم المنصوب بعد الفعل|حرف من حروف الجر`,`The doer (fa'il) is…|a nominative noun whose verb is mentioned before it|an accusative noun after the verb|a preposition`,`El agente (fa'il) es…|un nombre en nominativo cuyo verbo se menciona antes|un nombre en acusativo tras el verbo|una preposición`,`فاعل وہ ہے…|وہ اسم مرفوع جس کا فعل اس سے پہلے ذکر ہو|فعل کے بعد منصوب اسم|حرفِ جر`,`主语（الفاعل）是…|动词出现在它前面的主格名词|动词后面的宾格名词|一个介词`,`Le sujet (fa'il) est…|un nom au nominatif dont le verbe est mentionné avant|un nom à l'accusatif après le verbe|une préposition`],
+[`ينقسم الفاعل إلى؟|ظاهر ومضمر|مفرد وجمع|ماضٍ ومضارع`,`The fa'il is divided into…|Explicit and pronoun|Singular and plural|Past and present`,`El fa'il se divide en…|Explícito y pronombre|Singular y plural|Pasado y presente`,`فاعل کی اقسام ہیں…|ظاہر اور مضمر|مفرد اور جمع|ماضی اور مضارع`,`主语分为…|显性和隐性（代词）|单数和复数|过去式和现在式`,`Le fa'il se divise en…|Apparent et pronom|Singulier et pluriel|Passé et présent`],
+[`كم صورة للفاعل المضمر ذكرها المتن؟|اثنتا عشرة|ثلاث|سبع`,`How many forms of the pronoun subject does the text list?|Twelve|Three|Seven`,`¿Cuántas formas del sujeto pronominal enumera el texto?|Doce|Tres|Siete`,`متن میں ضمیرِ فاعل کی کتنی صورتیں ذکر ہیں؟|بارہ|تین|سات`,`原文列出了几种隐性主语形式？|十二种|三种|七种`,`Combien de formes du sujet pronominal le texte cite-t-il ?|Douze|Trois|Sept`],
+[`كم عدد الجوازم؟|ثمانية عشر|ثمانية|اثنا عشر`,`How many jussive particles (jawazim) are there?|Eighteen|Eight|Twelve`,`¿Cuántos jawazim (partículas del yusivo) hay?|Dieciocho|Ocho|Doce`,`جوازم کتنے ہیں؟|اٹھارہ|آٹھ|بارہ`,`使动词变为 جزم 的词（الجوازم）有几个？|十八个|八个|十二个`,`Combien y a-t-il de jawazim (particules du jussif) ?|Dix-huit|Huit|Douze`],
+[`أقسام الكلام ثلاثة، هي؟|اسم وفعل وحرف|اسم وفاعل ومفعول|فعل وخبر وبدل`,`The three parts of speech are…|Noun, verb, particle|Noun, doer, object|Verb, predicate, substitute`,`Las tres partes de la oración son…|Nombre, verbo, partícula|Nombre, sujeto, objeto|Verbo, predicado, sustituto`,`کلام کی تین اقسام ہیں…|اسم، فعل، حرف|اسم، فاعل، مفعول|فعل، خبر، بدل`,`词类分为三种：|名词、动词、虚词|名词、主语、宾语|动词、谓语、同位语`,`Les trois parties du discours sont…|Nom, verbe, particule|Nom, sujet, objet|Verbe, prédicat, substitut`],
+[`أيٌّ مما يلي ليس من التوابع؟|الفاعل|النعت|البدل`,`Which one is NOT a follower (tabi')?|The doer (fa'il)|Adjective (na't)|Substitute (badal)`,`¿Cuál NO es un seguidor (tabi')?|El agente (fa'il)|El adjetivo (na't)|El sustituto (badal)`,`ان میں سے کون سا تابع نہیں ہے؟|فاعل|نعت|بدل`,`下列哪个不是附属成分（التوابع）？|主语（الفاعل）|形容词（النعت）|同位语（البدل）`,`Lequel n'est PAS un suiveur (tabi') ?|Le sujet (fa'il)|L'adjectif (na't)|L'apposition (badal)`],
+[`«لم» و«لمّا» من…|الجوازم|المرفوعات|الحروف الجارة`,`"lam" and "lammā" belong to…|The jawazim|The nominatives|The prepositions`,`«lam» y «lammā» pertenecen a…|Los jawazim|Los nominativos|Las preposiciones`,`«لم» اور «لما» کس میں شامل ہیں؟|جوازم|مرفوعات|حروفِ جارہ`,`«لم» 和 «لما» 属于…|الجوازم（使动词 جزم 的词）|主格词|介词`,`«lam» et «lammā» font partie des…|Jawazim|Nominatifs|Prépositions`],
+[`أيّ أنواع الإعراب خاصّ بالأسماء؟|الخفض|الجزم|الرفع`,`Which case is exclusive to nouns?|Khafd (genitive)|Jazm (jussive)|Raf' (nominative)`,`¿Qué caso es exclusivo de los nombres?|Khafd (genitivo)|Jazm (yusivo)|Raf' (nominativo)`,`کون سا اعراب صرف اسماء کے ساتھ خاص ہے؟|خفض|جزم|رفع`,`哪种格位只用于名词？|Khafd（الخفض 属格）|Jazm（الجزم）|Raf'（الرفع 主格）`,`Quel cas est réservé aux noms ?|Khafd (génitif)|Jazm (jussif)|Raf' (nominatif)`],
+[`في «قام زيدٌ» من هو الفاعل؟|زيد|قام|لا يوجد فاعل`,`In "qāma Zaydun", who is the fa'il?|Zayd|qāma|There is none`,`En «qāma Zaydun», ¿cuál es el fa'il?|Zayd|qāma|No hay`,`«قام زیدٌ» میں فاعل کون ہے؟|زید|قام|کوئی فاعل نہیں`,`在 «قام زيد» 中，主语是谁？|زيد（扎伊德）|قام|没有主语`,`Dans «qāma Zaydun», quel est le fa'il ?|Zayd|qāma|Aucun`],
+[`«الفاعل» و«المبتدأ» و«اسم كان» كلها من…|المرفوعات|المنصوبات|المجرورات`,`"fa'il", "mubtada'" and "ism kāna" are all…|Nominatives (marfu'at)|Accusatives|Genitives`,`«fa'il», «mubtada'» e «ism kāna» son todos…|Nominativos (marfu'at)|Acusativos|Genitivos`,`«فاعل»، «مبتدأ» اور «اسم کان» سب ہیں…|مرفوعات|منصوبات|مجرورات`,`«الفاعل»、«المبتدأ»、«اسم كان» 都属于…|主格词（المرفوعات）|宾格词|属格词`,`«fa'il», «mubtada'» et «ism kāna» sont tous…|Nominatifs (marfou'at)|Accusatifs|Génitifs`]
+];
+/* ===== الحالة ===== */
+const $=id=>document.getElementById(id);
+const COL=[0xff6b6b,0x4dabf7,0x69db7c,0xffa94d];
+let lang="ar",np=1,P=[],cur=0,deck=[],lastPos=-1,busy=true,moving=false,gem=0,S=13,grid=[],items={};
+const shuf=a=>{for(let i=a.length-1;i>0;i--){const j=Math.random()*(i+1)|0;[a[i],a[j]]=[a[j],a[i]]}return a};
+const tr=k=>T[lang][k];
+
+/* ===== الصفحة الرئيسية ===== */
+function home(){
+  document.documentElement.lang=lang;document.documentElement.dir=(lang=="ar"||lang=="ur")?"rtl":"ltr";
+  $("t").textContent=tr("t");$("sub").textContent=tr("sub");$("pc").textContent=tr("pc");$("go").textContent=tr("go");
+  $("langs").innerHTML="";LN.forEach(l=>{const b=document.createElement("button");b.textContent=T[l].n;b.className=l==lang?"on":"";b.onclick=()=>{lang=l;home()};$("langs").append(b)});
+  $("counts").innerHTML="";[1,2,3,4].forEach(n=>{const b=document.createElement("button");b.textContent=n;b.className=n==np?"on":"";b.onclick=()=>{np=n;home()};$("counts").append(b)});
+  const old=[...$("names").children].map(i=>i.value);$("names").innerHTML="";
+  for(let i=0;i<np;i++){const e=document.createElement("input");e.placeholder=tr("pn")+" "+(i+1);e.value=old[i]||"";e.maxLength=14;$("names").append(e)}
+}
+$("go").onclick=()=>{
+  P=[...$("names").children].map((e,i)=>({name:e.value.trim()||tr("pn")+" "+(i+1),score:0,stars:0,x:1,z:1,c:COL[i]}));
+  cur=0;deck=shuf(Q.map((_,i)=>i));$("home").style.display="none";build();hud();busy=false;
+};
+
+/* ===== المتاهة ثلاثية الأبعاد ===== */
+const R=new THREE.WebGLRenderer({antialias:true});R.setPixelRatio(Math.min(devicePixelRatio,2));document.body.prepend(R.domElement);
+const sc=new THREE.Scene();sc.background=new THREE.Color(0x1b1340);sc.fog=new THREE.Fog(0x1b1340,12,28);
+const cam=new THREE.PerspectiveCamera(55,1,.1,60);
+sc.add(new THREE.HemisphereLight(0xffffff,0x4b3d9a,.9));const dl=new THREE.DirectionalLight(0xffffff,.8);dl.position.set(5,12,6);sc.add(dl);
+let world=new THREE.Group(),pawns=[];sc.add(world);
+const W=v=>v-S/2;
+function maze(){
+  grid=Array.from({length:S},()=>Array(S).fill(1));
+  const st=[[1,1]];grid[1][1]=0;
+  while(st.length){const[x,z]=st[st.length-1];const n=shuf([[2,0],[-2,0],[0,2],[0,-2]]).filter(([a,b])=>grid[z+b]&&grid[z+b][x+a]===1&&x+a>0&&z+b>0&&x+a<S-1&&z+b<S-1);
+    if(!n.length){st.pop();continue}const[a,b]=n[0];grid[z+b/2][x+a/2]=0;grid[z+b][x+a]=0;st.push([x+a,z+b])}
+}
+function build(){
+  sc.remove(world);world=new THREE.Group();sc.add(world);items={};pawns=[];maze();
+  const floor=new THREE.Mesh(new THREE.BoxGeometry(S,.2,S),new THREE.MeshLambertMaterial({color:0x3a2d7a}));floor.position.y=-.1;world.add(floor);
+  const wm=new THREE.MeshLambertMaterial({color:0x7b61ff});
+  for(let z=0;z<S;z++)for(let x=0;x<S;x++)if(grid[z][x]){const m=new THREE.Mesh(new THREE.BoxGeometry(1,1.2,1),wm);m.position.set(W(x)+.5,.6,W(z)+.5);world.add(m)}
+  const free=shuf([].concat(...grid.map((r,z)=>r.map((v,x)=>v?null:[x,z]))).filter(p=>p&&!(p[0]==1&&p[1]==1)&&!(p[0]==S-2&&p[1]==S-2)));
+  gem=Math.min(Q.length,free.length-3);
+  const add=(p,type,geo,color)=>{const m=new THREE.Mesh(geo,new THREE.MeshLambertMaterial({color,emissive:color,emissiveIntensity:.35}));m.position.set(W(p[0])+.5,.55,W(p[1])+.5);world.add(m);items[p[0]+","+p[1]]={type,m}};
+  for(let i=0;i<gem;i++)add(free[i],"gem",new THREE.OctahedronGeometry(.28),0x2ec4b6);
+  add(free[gem],"xo",new THREE.BoxGeometry(.5,.5,.5),0xff9ff3);add(free[gem+1],"xo",new THREE.BoxGeometry(.5,.5,.5),0xff9ff3);
+  add([S-2,S-2],"star",new THREE.IcosahedronGeometry(.4),0xffd23f);
+  P.forEach(p=>{p.x=1;p.z=1;const g=new THREE.Group();const b=new THREE.Mesh(new THREE.ConeGeometry(.28,.6,16),new THREE.MeshLambertMaterial({color:p.c}));b.position.y=.3;const h=new THREE.Mesh(new THREE.SphereGeometry(.2,16,16),new THREE.MeshLambertMaterial({color:0xffe0bd}));h.position.y=.75;g.add(b,h);g.position.set(W(1)+.5,0,W(1)+.5);world.add(g);pawns.push(g)});
+}
+function step(dx,dz){
+  if(busy||moving)return;const p=P[cur],nx=p.x+dx,nz=p.z+dz;if(!grid[nz]||grid[nz][nx])return;
+  moving=true;const g=pawns[cur],x0=g.position.x,z0=g.position.z,t0=performance.now();
+  const f=t=>{const k=Math.min(1,(t-t0)/170);g.position.x=x0+dx*k;g.position.z=z0+dz*k;g.position.y=Math.sin(k*Math.PI)*.2;
+    if(k<1)requestAnimationFrame(f);else{p.x=nx;p.z=nz;moving=false;arrive()}};requestAnimationFrame(f);
+}
+function arrive(){
+  const k=P[cur].x+","+P[cur].z,it=items[k];if(!it)return;world.remove(it.m);delete items[k];
+  if(it.type=="gem")ask();else if(it.type=="xo")ttt();else{P[cur].stars++;P[cur].score+=5;finish()}
+}
+addEventListener("keydown",e=>{const m={ArrowUp:[0,-1],w:[0,-1],ArrowDown:[0,1],s:[0,1],ArrowLeft:[-1,0],a:[-1,0],ArrowRight:[1,0],d:[1,0]}[e.key];if(m){e.preventDefault();step(...m)}});
+document.querySelectorAll("#pad button").forEach(b=>b.onclick=()=>step(...b.dataset.d.split(",").map(Number)));
+function frame(){requestAnimationFrame(frame);const t=performance.now()/600;
+  Object.values(items).forEach(i=>{i.m.rotation.y=t;i.m.position.y=.55+Math.sin(t*2)*.08});
+  const g=pawns[cur];if(g){cam.position.lerp(new THREE.Vector3(g.position.x,8,g.position.z+6),.06);cam.lookAt(g.position.x,0,g.position.z)}
+  R.render(sc,cam)}
+function size(){R.setSize(innerWidth,innerHeight);cam.aspect=innerWidth/innerHeight;cam.updateProjectionMatrix()}
+addEventListener("resize",size);size();cam.position.set(0,8,8);frame();
+
+/* ===== واجهة اللعب ===== */
+function hud(){$("hud").innerHTML=P.map((p,i)=>`<div class="pl ${i==cur?"cur":""}" style="color:#${p.c.toString(16).padStart(6,"0")}">${i==cur?"▶ ":""}${p.name}: ${p.score} ${tr("pts")} ${"⭐".repeat(p.stars)}</div>`).join("")}
+function modal(h){$("mb").innerHTML=h;$("m").style.display="flex"}
+function closeM(){$("m").style.display="none"}
+function next(){closeM();cur=(cur+1)%P.length;hud();busy=false;if(!Object.values(items).some(i=>i.type=="gem")&&!deck.length)finish()}
+
+/* سؤال: الخيارات تُخلط في كل مرة ولا يتكرر موضع الإجابة الصحيحة مرتين متتاليتين، والأسئلة لا تتكرر */
+function ask(){
+  busy=true;if(!deck.length){next();return}
+  const[q,r,w1,w2]=Q[deck.pop()][LN.indexOf(lang)].split("|");let o;
+  do{o=shuf([r,w1,w2])}while(o.indexOf(r)==lastPos);lastPos=o.indexOf(r);
+  modal(`<h2>💎 ${q}</h2>`+o.map(x=>`<button class="qb">${x}</button>`).join(""));
+  document.querySelectorAll(".qb").forEach(b=>b.onclick=()=>{
+    document.querySelectorAll(".qb").forEach(x=>{x.disabled=true;if(x.textContent==r)x.classList.add("good")});
+    const ok=b.textContent==r;if(!ok)b.classList.add("bad");else P[cur].score+=3;
+    $("mb").insertAdjacentHTML("beforeend",`<p>${ok?tr("ok"):tr("no")+" "+r}</p>`);setTimeout(next,1600)});
+}
+
+/* X و O ضد الحاسوب */
+function ttt(){
+  busy=true;const B=Array(9).fill(""),L=[[0,1,2],[3,4,5],[6,7,8],[0,3,6],[1,4,7],[2,5,8],[0,4,8],[2,4,6]];let over=false;
+  const win=s=>L.some(l=>l.every(i=>B[i]==s));
+  modal(`<h2>${tr("xo")}</h2><div class="ttt">${B.map((_,i)=>`<button data-i="${i}"></button>`).join("")}</div><p id="tm"></p>`);
+  const cells=[...document.querySelectorAll(".ttt button")];
+  const draw=()=>cells.forEach((c,i)=>c.textContent=B[i]);
+  const end=m=>{over=true;$("tm").textContent=m;setTimeout(next,1600)};
+  const find=s=>{for(const l of L){const v=l.map(i=>B[i]);if(v.filter(x=>x==s).length==2&&v.includes(""))return l[v.indexOf("")]}return -1};
+  cells.forEach(c=>c.onclick=()=>{
+    const i=+c.dataset.i;if(over||B[i])return;B[i]="X";draw();
+    if(win("X")){P[cur].stars++;P[cur].score+=5;hud();return end(tr("win"))}
+    if(!B.includes(""))return end(tr("dr"));
+    let m=find("O");if(m<0)m=find("X");if(m<0)m=B[4]?-1:4;if(m<0){const e=B.map((v,k)=>v?-1:k).filter(k=>k>=0);m=e[Math.random()*e.length|0]}
+    B[m]="O";draw();if(win("O"))return end(tr("lose"));if(!B.includes(""))end(tr("dr"))});
+}
+
+function finish(){
+  busy=true;hud();const r=[...P].sort((a,b)=>b.score-a.score);
+  modal(`<h1>🏆 ${tr("end")}</h1>`+r.map((p,i)=>`<p style="font-size:1.3rem">${i==0?"👑":i+1+"."} ${p.name}: <b>${p.score}</b> ${tr("pts")} ${"⭐".repeat(p.stars)}</p>`).join("")+`<button class="go" onclick="location.reload()">${tr("again")}</button>`);
+}
+home();
+</script>
+</body>
+</html>
